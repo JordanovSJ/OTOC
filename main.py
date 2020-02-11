@@ -98,7 +98,7 @@ def get_measurement_probs(qasm, noise=False):
 if __name__ == "__main__":
 
     max_entangling = True  # this controls if we want to use max. entangling U operation
-    noise = False
+    noise = True
     A_qubit = 0
     B_qubit = 1
     ancilla_qubits = [2, 3, 4]
@@ -108,16 +108,38 @@ if __name__ == "__main__":
     qasm_header = qasm_header(2 + len(ancilla_qubits))
 
     otoc_values = []
+
     angles = numpy.arange(101)*numpy.pi/100
     for angle in angles:
         otoc_qasm = otoc_circuit(angle, A_qubit, B_qubit, ancilla_qubits, max_entangling=max_entangling)
-        qasm = qasm_header + initial_state_qasm + otoc_qasm + initial_state_qasm\
-               + qasm_measurements(2 + len(ancilla_qubits))
-        measurement_probs = get_measurement_probs(qasm, noise)
+        qasm = qasm_header + initial_state_qasm + otoc_qasm + initial_state_qasm
+
+        # perform a little state tomography to find the sign of the OTOC
+        measurement_probs = get_measurement_probs(qasm + qasm_measurements(2 + len(ancilla_qubits)), noise)
         try:
-            otoc_values.append(measurement_probs[''.zfill(len(ancilla_qubits)+2)]/1000)
+            p1 = (measurement_probs[''.zfill(len(ancilla_qubits)+2)]/1000)
         except KeyError:
-            otoc_values.append(0)
+            p1 = 0.000001
+
+        try:
+            p2 = (measurement_probs[''.zfill(len(ancilla_qubits) + 1)+'1'] / 1000)
+        except KeyError:
+            p2 = 0.000001
+
+        qasm += 'h q[0];\n'
+        measurement_probs = get_measurement_probs(qasm + qasm_measurements(2 + len(ancilla_qubits)), noise)
+        try:
+            p3 = (measurement_probs[''.zfill(len(ancilla_qubits) + 2)] / 1000)
+        except KeyError:
+            p3 = 0.000001
+
+        try:
+            p4 = (measurement_probs[''.zfill(len(ancilla_qubits) + 1)+'1'] / 1000)
+        except KeyError:
+            p4 = 0.000001
+
+        otoc_value = (numpy.arccos((p3 - p1 - p2)/(2*(p1*p2)**0.5)) + numpy.arccos((p4 - p1 - p2)/(2*(p1*p2)**0.5)))/2
+        otoc_values.append(otoc_value)
 
     otoc_values = numpy.array(otoc_values)
     plt.plot(angles, otoc_values)
