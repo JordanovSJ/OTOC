@@ -68,8 +68,8 @@ def otoc_circuit(angle, A_qubit, B_qubit, ancilla_qubits, max_entangling=True):
 
 
 def custom_noise_model():
-    prob_1 = 0.001  # 1-qubit gate
-    prob_2 = 0.01   # 2-qubit gate
+    prob_1 = 0.01  # 1-qubit gate
+    prob_2 = 0.03   # 2-qubit gate
 
     # Depolarizing quantum errors
     error_1 = qiskit.providers.aer.noise.errors.depolarizing_error(prob_1, 1)
@@ -98,53 +98,56 @@ def get_measurement_probs(qasm, noise=False):
 if __name__ == "__main__":
 
     max_entangling = True  # this controls if we want to use max. entangling U operation
-    noise = True
+    # noise = False
+
     A_qubit = 0
     B_qubit = 1
-    ancilla_qubits = [2, 3, 4]
-    # get initial state (|0>+|1>)|0>
-    initial_state_qasm = ('h q[{}];\n'.format(A_qubit))
+    n_max_qubits = 7
 
-    qasm_header = qasm_header(2 + len(ancilla_qubits))
+    for n_qubits in range(2, n_max_qubits+1):
+        print(n_qubits)
+        ancilla_qubits = list(numpy.arange(n_qubits-2) + 2)
+        # get initial state (|0>+|1>)|0>
+        initial_state_qasm = ('h q[{}];\n'.format(A_qubit))
 
-    otoc_values = []
+        header = qasm_header(2 + len(ancilla_qubits))
 
-    angles = numpy.arange(101)*numpy.pi/100
-    for angle in angles:
-        otoc_qasm = otoc_circuit(angle, A_qubit, B_qubit, ancilla_qubits, max_entangling=max_entangling)
-        qasm = qasm_header + initial_state_qasm + otoc_qasm + initial_state_qasm
+        otoc_values = []
+        noisy_otoc_values = []
 
-        # perform a little state tomography to find the sign of the OTOC
-        measurement_probs = get_measurement_probs(qasm + qasm_measurements(2 + len(ancilla_qubits)), noise)
-        try:
-            p1 = (measurement_probs[''.zfill(len(ancilla_qubits)+2)]/1000)
-        except KeyError:
-            p1 = 0.000001
+        angles = numpy.arange(101)*numpy.pi/100
+        for angle in angles:
+            otoc_qasm = otoc_circuit(angle, A_qubit, B_qubit, ancilla_qubits, max_entangling=max_entangling)
+            qasm = header + initial_state_qasm + otoc_qasm + initial_state_qasm
 
-        try:
-            p2 = (measurement_probs[''.zfill(len(ancilla_qubits) + 1)+'1'] / 1000)
-        except KeyError:
-            p2 = 0.000001
+            # perform a little state tomography to find the sign of the OTOC
+            measurement_probs = get_measurement_probs(qasm + qasm_measurements(2 + len(ancilla_qubits)), noise=False)
+            try:
+                otoc_values.append(measurement_probs[''.zfill(len(ancilla_qubits)+2)]/1000)
+            except KeyError:
+                otoc_values.append(0)
 
-        qasm += 'h q[0];\n'
-        measurement_probs = get_measurement_probs(qasm + qasm_measurements(2 + len(ancilla_qubits)), noise)
-        try:
-            p3 = (measurement_probs[''.zfill(len(ancilla_qubits) + 2)] / 1000)
-        except KeyError:
-            p3 = 0.000001
+            noisy_measurement_probs = get_measurement_probs(qasm + qasm_measurements(2 + len(ancilla_qubits)), noise=True)
+            try:
+                noisy_otoc_values.append(noisy_measurement_probs[''.zfill(len(ancilla_qubits) + 2)] / 1000)
+            except KeyError:
+                noisy_otoc_values.append(0)
 
-        try:
-            p4 = (measurement_probs[''.zfill(len(ancilla_qubits) + 1)+'1'] / 1000)
-        except KeyError:
-            p4 = 0.000001
+        # plotting
+        plt.subplot(n_max_qubits - 1, 1, n_qubits - 1)
+        plt.plot(angles, otoc_values, '*', color='b', label='no noise')
+        plt.plot(angles, noisy_otoc_values, '.', color='r', label='noise')
+        if n_qubits == 2:
+            if max_entangling:
+                plt.title('OTOC values. Max entangling')
+            else:
+                plt.title('OTOC values. Partial entangling')
+        plt.legend()
+        plt.ylabel('OTOC \n{} qubits'.format(n_qubits))
+        if n_qubits != n_max_qubits:
+            plt.xticks(angles, " ")  # cheat
+        plt.ylim(0, 1.1)
 
-        otoc_value = (numpy.arccos((p3 - p1 - p2)/(2*(p1*p2)**0.5)) + numpy.arccos((p4 - p1 - p2)/(2*(p1*p2)**0.5)))/2
-        otoc_values.append(otoc_value)
-
-    otoc_values = numpy.array(otoc_values)
-    plt.plot(angles, otoc_values)
-    plt.ylim(-1.1, 1.1)
     plt.xlabel(r't, [$\pi$]')
-    plt.ylabel('OTOC')
     plt.show()
     print('Ciao')
