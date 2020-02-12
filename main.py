@@ -83,6 +83,17 @@ def custom_noise_model():
     return noise_model
 
 
+def get_statevector_from_qasm(qasm_circuit):
+    n_threads = 2
+    backend_options = {"method": "statevector", "zero_threshold": 10e-9, "max_parallel_threads": n_threads,
+                       "max_parallel_experiments": n_threads, "max_parallel_shots": n_threads}
+    backend = qiskit.Aer.get_backend('statevector_simulator')
+    qiskit_circuit = qiskit.QuantumCircuit.from_qasm_str(qasm_circuit)
+    result = qiskit.execute(qiskit_circuit, backend, backend_options=backend_options).result()
+    statevector = result.get_statevector(qiskit_circuit)
+    return statevector
+
+
 # get the statevector produced by the qasm circuit
 def get_measurement_probs(qasm, noise=False):
     backend = qiskit.Aer.get_backend('qasm_simulator')
@@ -97,7 +108,7 @@ def get_measurement_probs(qasm, noise=False):
 
 if __name__ == "__main__":
 
-    max_entangling = True  # this controls if we want to use max. entangling U operation
+    max_entangling = False  # this controls if we want to use max. entangling U operation
     # noise = False
 
     A_qubit = 0
@@ -121,22 +132,25 @@ if __name__ == "__main__":
             qasm = header + initial_state_qasm + otoc_qasm + initial_state_qasm
 
             # perform a little state tomography to find the sign of the OTOC
-            measurement_probs = get_measurement_probs(qasm + qasm_measurements(2 + len(ancilla_qubits)), noise=False)
+            # measurement_probs = get_measurement_probs(qasm + qasm_measurements(2 + len(ancilla_qubits)), noise=False)
+            statevector = get_statevector_from_qasm(qasm)
+            otoc_value = statevector[0]
             try:
-                otoc_values.append(measurement_probs[''.zfill(len(ancilla_qubits)+2)]/1000)
+                # otoc_values.append(measurement_probs[''.zfill(len(ancilla_qubits)+2)]/1000)
+                otoc_values.append(otoc_value)
             except KeyError:
                 otoc_values.append(0)
 
-            noisy_measurement_probs = get_measurement_probs(qasm + qasm_measurements(2 + len(ancilla_qubits)), noise=True)
-            try:
-                noisy_otoc_values.append(noisy_measurement_probs[''.zfill(len(ancilla_qubits) + 2)] / 1000)
-            except KeyError:
-                noisy_otoc_values.append(0)
+            # noisy_measurement_probs = get_measurement_probs(qasm + qasm_measurements(2 + len(ancilla_qubits)), noise=True)
+            # try:
+            #     noisy_otoc_values.append(noisy_measurement_probs[''.zfill(len(ancilla_qubits) + 2)] / 1000)
+            # except KeyError:
+            #     noisy_otoc_values.append(0)
 
         # plotting
         plt.subplot(n_max_qubits - 1, 1, n_qubits - 1)
         plt.plot(angles, otoc_values, '*', color='b', label='no noise')
-        plt.plot(angles, noisy_otoc_values, '.', color='r', label='noise')
+        # plt.plot(angles, noisy_otoc_values, '.', color='r', label='noise')
         if n_qubits == 2:
             if max_entangling:
                 plt.title('OTOC values. Max entangling')
@@ -146,7 +160,7 @@ if __name__ == "__main__":
         plt.ylabel('OTOC \n{} qubits'.format(n_qubits))
         if n_qubits != n_max_qubits:
             plt.xticks(angles, " ")  # cheat
-        plt.ylim(0, 1.1)
+        plt.ylim(-1.1, 1.1)
 
     plt.xlabel(r't, [$\pi$]')
     plt.show()
