@@ -8,6 +8,21 @@ import pandas
 from functions import *
 
 
+def otoc_circuit(time, A_qubit, B_qubit, ancilla_qubits, f_U=None):
+
+    B = 'z q[{}];\n'.format(B_qubit)
+    A = 'x q[{}];\n'.format(A_qubit)
+
+    if f_U is None:
+        # we get the conjugate by changing the sign of the angle parameter and reversing the order of the quantum gates
+        U_conj = max_entangling_gate(-time, A_qubit, ancilla_qubits + [B_qubit])[::-1]
+        U = max_entangling_gate(time, A_qubit, ancilla_qubits + [B_qubit])
+    else:
+        U, U_conj = f_U(time, [A_qubit] + ancilla_qubits + [B_qubit])
+
+    return U_conj + B + U + A + U_conj + B + U + A
+
+
 if __name__ == "__main__":
 
     max_entangling = False  # this controls if we want to use max. entangling U operation

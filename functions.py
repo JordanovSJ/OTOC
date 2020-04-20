@@ -18,21 +18,6 @@ def qasm_measurements(n_qubits):
     return ''.join(qasm)
 
 
-def otoc_circuit(time, A_qubit, B_qubit, ancilla_qubits, f_U=None):
-
-    B = 'z q[{}];\n'.format(B_qubit)
-    A = 'x q[{}];\n'.format(A_qubit)
-
-    if f_U is None:
-        # we get the conjugate by changing the sign of the angle parameter and reversing the order of the quantum gates
-        U_conj = max_entangling_gate(-time, A_qubit, ancilla_qubits + [B_qubit])[::-1]
-        U = max_entangling_gate(time, A_qubit, ancilla_qubits + [B_qubit])
-    else:
-        U, U_conj = f_U(time, [A_qubit] + ancilla_qubits + [B_qubit])
-
-    return U_conj + B + U + A + U_conj + B + U + A
-
-
 def custom_noise_model():
     prob_1 = 0.01  # 1-qubit gate
     prob_2 = 0.03   # 2-qubit gate
@@ -61,14 +46,14 @@ def get_statevector_from_qasm(qasm_circuit):
 
 
 # get the statevector produced by the qasm circuit
-def get_measurement_probs(qasm, noise=False):
+def get_measurement_probs(qasm, noise=False, shots=1000):
     backend = qiskit.Aer.get_backend('qasm_simulator')
     qiskit_circuit = qiskit.QuantumCircuit.from_qasm_str(qasm)
     if noise:
         noise_model = custom_noise_model()
     else:
         noise_model = None
-    sim_result = qiskit.execute(qiskit_circuit, backend, noise_model=noise_model, shots=1000).result()
+    sim_result = qiskit.execute(qiskit_circuit, backend, noise_model=noise_model, shots=shots).result()
     return sim_result.get_counts(qiskit_circuit)
 
 
