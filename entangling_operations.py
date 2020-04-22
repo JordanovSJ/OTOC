@@ -92,21 +92,24 @@ def random_entangling_2(time, qubits):
     return ''.join(qasm), ''.join(qasm_conj[::-1])
 
 
-def max_entangling_gate(angle, control_qubit, target_qubits):
+def max_entangling_gate(angle, qubits):
     qasm = []
     qasm_conj = []
-    for qubit in target_qubits:
-        qasm += ['rx({}) q[{}];\n'.format(angle/2, qubit)]
-        qasm_conj += ['rx({}) q[{}];\n'.format(-angle/2, qubit)]
+    for i in range(len(qubits[1:])):
+        target = qubits[i]
+        control = qubits[i-1]
 
-        qasm += ['cz q[{}], q[{}];\n'.format(control_qubit, qubit)]
-        qasm_conj += ['cz q[{}], q[{}];\n'.format(control_qubit, qubit)]
+        qasm += ['rx({}) q[{}];\n'.format(angle/2, target)]
+        qasm_conj += ['rx({}) q[{}];\n'.format(-angle/2, target)]
 
-        qasm += ['rx({}) q[{}];\n'.format(-angle/2, qubit)]
-        qasm_conj += ['rx({}) q[{}];\n'.format(angle/2, qubit)]
+        qasm += ['cz q[{}], q[{}];\n'.format(control, target)]
+        qasm_conj += ['cz q[{}], q[{}];\n'.format(control, target)]
 
-        qasm += ['cz q[{}], q[{}];\n'.format(control_qubit, qubit)]
-        qasm_conj += ['cz q[{}], q[{}];\n'.format(control_qubit, qubit)]
+        qasm += ['rx({}) q[{}];\n'.format(-angle/2, target)]
+        qasm_conj += ['rx({}) q[{}];\n'.format(angle/2, target)]
+
+        qasm += ['cz q[{}], q[{}];\n'.format(control, target)]
+        qasm_conj += ['cz q[{}], q[{}];\n'.format(control, target)]
 
     return ''.join(qasm), ''.join(qasm_conj[::-1])
 

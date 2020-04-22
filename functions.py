@@ -10,10 +10,18 @@ def qasm_header(n_qubits):
     return 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[{0}];\ncreg c[{0}];\n'.format(n_qubits)
 
 
-def qasm_measurements(n_qubits):
+def qasm_measurements_all_qubits(n_qubits):
     qasm=['']
     for i in range(n_qubits):
         qasm.append('measure q[{0}] -> c[{0}];'.format(i))
+
+    return ''.join(qasm)
+
+
+def qasm_measuremnts(ancillas):
+    qasm = ['']
+    for ancilla in ancillas:
+        qasm.append('measure q[{0}] -> c[{0}];'.format(ancilla))
 
     return ''.join(qasm)
 
@@ -46,14 +54,21 @@ def get_statevector_from_qasm(qasm_circuit):
 
 
 # get the statevector produced by the qasm circuit
-def get_measurement_probs(qasm, noise=False, shots=1000):
-    backend = qiskit.Aer.get_backend('qasm_simulator')
+def get_measurement_counts(qasm, noise=False, shots=1000):
+    backend_options = {"zero_threshold": 10e-9, "max_parallel_threads": 8,
+                       "max_parallel_experiments": 8, "max_parallel_shots": 8}
+    backend = qiskit.Aer.get_backend('qasm_simulator', )
     qiskit_circuit = qiskit.QuantumCircuit.from_qasm_str(qasm)
     if noise:
         noise_model = custom_noise_model()
     else:
         noise_model = None
-    sim_result = qiskit.execute(qiskit_circuit, backend, noise_model=noise_model, shots=shots).result()
-    return sim_result.get_counts(qiskit_circuit)
+    sim_result = qiskit.execute(qiskit_circuit, backend, backend_options=backend_options, noise_model=noise_model, shots=shots).result()
+    state_counts = sim_result.get_counts(qiskit_circuit)
 
+    state_counts_reversed = {}
+    for state in state_counts.keys():
+        count = state_counts[state]
+        state_counts_reversed[state[::-1]] = count
 
+    return state_counts_reversed
