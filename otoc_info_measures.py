@@ -47,7 +47,8 @@ def otoc_informative_measures_circuit(qubit_a, qubit_b, n_qubits, ancillas, phis
     return ''.join(qasm)
 
 
-def otoc_informative_measures_value(time, qubit_a=0, qubit_b=1, ancillas=None, n_qubits=2, noise=False, phis=None, shots_per_experiment=2000):
+def otoc_informative_measures_value(time, qubit_a=0, qubit_b=1, ancillas=None, n_qubits=2, noise=False, phis=None,
+                                    shots_per_experiment=2000, noise_model=None):
 
     if ancillas is None:
         ancillas = [n_qubits, n_qubits + 1, n_qubits + 2]
@@ -65,8 +66,8 @@ def otoc_informative_measures_value(time, qubit_a=0, qubit_b=1, ancillas=None, n
 
     qasm = header_qasm + initial_state_qasm + otoc_circuit_qasm + measurements_qasm
 
-    state_counts = get_measurement_counts(qasm, noise=noise, shots=shots_per_experiment)
-    # print(state_counts)
+    state_counts = get_measurement_counts(qasm, noise=noise, shots=shots_per_experiment, noise_model=noise_model)
+
     info_meas_1 = [0, 0]
     info_meas_2 = [0, 0]
     info_meas_3 = [0, 0]
@@ -89,23 +90,18 @@ def otoc_informative_measures_value(time, qubit_a=0, qubit_b=1, ancillas=None, n
         else:
             info_meas_3[0] += count
 
-    # print(info_meas_1)
-    # print(info_meas_2)
-    # print(info_meas_3)
     p_test = 0
     for ancilla_outcomes in itertools.product([0, 1], repeat=3):
         p = info_meas_1[ancilla_outcomes[0]] * info_meas_2[ancilla_outcomes[1]] * info_meas_3[ancilla_outcomes[2]] \
             / (sum(info_meas_1) * sum(info_meas_2) * sum(info_meas_3))
-        # print(p)
         p_test += p
         term_value = \
             ((-1) ** (ancilla_outcomes[0] + ancilla_outcomes[2]) / (
                         numpy.sin(phis['phi_a']) * numpy.sin(phis['phi_a2'])) -
              numpy.cos(phis['phi_b'] / 2) ** 2) * p  # / numpy.sin(phis['phi_b'] / 2) ** 2  # move at the end
-        # print('term_value: = ', term_value)
         otoc_value += term_value
 
-    print('p_test = ', p_test)
+    # print('p_test = ', p_test)
     return otoc_value / numpy.sin(phis['phi_b'] / 2) ** 2
 
 
@@ -116,12 +112,15 @@ if __name__ == "__main__":
     time_points = 25
     n_max_qubits = 7
 
+    phis = {'phi_a': numpy.pi/4, 'phi_b': numpy.pi/4, 'phi_a2': numpy.pi/4}
+    noise_model = device_noise_model()
+
     qubit_A = 0
     qubit_B = 1
 
-    # variables
+    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
     times = numpy.arange(time_points)*numpy.pi/time_points
-    phis = {'phi_a': numpy.pi/4, 'phi_b': numpy.pi/4, 'phi_a2': numpy.pi/4}
 
     plot_title = True
     # ray.init(num_cpus=3)
@@ -139,7 +138,8 @@ if __name__ == "__main__":
                 # print('time: ', time)
                 otoc_value = otoc_informative_measures_value(time, qubit_a=qubit_A, qubit_b=qubit_B, n_qubits=n_qubits,
                                                              noise=noise, ancillas=ancillas, phis=phis,
-                                                             shots_per_experiment=shots_per_experiment)
+                                                             shots_per_experiment=shots_per_experiment,
+                                                             noise_model=noise_model)
                 otoc_values.append(otoc_value)
 
             # @ ray.remote()
